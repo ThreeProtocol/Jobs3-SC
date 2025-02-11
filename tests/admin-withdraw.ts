@@ -1,3 +1,4 @@
+//this is test script for admin withdraw, feature job listing with employer referral
 import * as anchor from "@coral-xyz/anchor";
 import { Program, Wallet } from "@coral-xyz/anchor";
 import { expect, assert } from "chai";
@@ -12,6 +13,7 @@ import {
 } from "@solana/spl-token";
 import { GigBasicContract } from "../target/types/gig_basic_contract";
 import { v4 as uuid } from "uuid";
+import { Keypair } from "@solana/web3.js";
 
 describe("Admin Withdraw", () => {
   const provider = anchor.AnchorProvider.env();
@@ -24,7 +26,9 @@ describe("Admin Withdraw", () => {
   let jobContract: anchor.web3.PublicKey;
   let employerAta: anchor.web3.PublicKey;
   let contractAta: anchor.web3.PublicKey;
-  let PAY_TOKEN_MINT_ADDRESS: anchor.web3.PublicKey;
+  let employerReferral: anchor.web3.PublicKey;
+  let employerReferralAta: anchor.web3.PublicKey;
+  let PAY_TOKEN_MINT_ADDRESS: anchor.web3.Keypair;
   let ASSOCIATED_TOKEN_PROGRAM_ID: anchor.web3.PublicKey;
   let contractId: string;
 
@@ -32,7 +36,7 @@ describe("Admin Withdraw", () => {
     console.log("------------- before -------------");
     // Create employer account
     employer = anchor.web3.Keypair.generate();
-
+    employerReferral = new anchor.web3.PublicKey("FYNfBvTVTNrYGfjmHfETkEWb5xFEcDxKYqBgsGZxtJJD");
     // sol transfer
     const transaction = new anchor.web3.Transaction();
 
@@ -81,20 +85,19 @@ describe("Admin Withdraw", () => {
           }
         `);
 
-    PAY_TOKEN_MINT_ADDRESS = new anchor.web3.PublicKey(
-      "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
-    );
+    PAY_TOKEN_MINT_ADDRESS = Keypair.generate();
 
     // Create the custom USDT-like token mint
-    PAY_TOKEN_MINT_ADDRESS = await createMint(
+    await createMint(
       provider.connection,
       employer,
       employer.publicKey,
       null,
-      6
+      6,
+      PAY_TOKEN_MINT_ADDRESS
     );
 
-    console.log("New token mint: ", PAY_TOKEN_MINT_ADDRESS.toBase58());
+    console.log("New token mint: ", PAY_TOKEN_MINT_ADDRESS.publicKey.toBase58());
 
     // Create associated token accounts for employer and contract
     // Create associated token accounts for employer and contract
@@ -102,18 +105,29 @@ describe("Admin Withdraw", () => {
       await getOrCreateAssociatedTokenAccount(
         provider.connection,
         employer,
-        PAY_TOKEN_MINT_ADDRESS,
-        signer.publicKey
+        PAY_TOKEN_MINT_ADDRESS.publicKey,
+        employer.publicKey
       )
     ).address; // Access the address property
 
     console.log("employerAta: ", employerAta.toBase58());
 
+    employerReferralAta = (
+      await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        employer,
+        PAY_TOKEN_MINT_ADDRESS.publicKey,
+        employerReferral
+      )
+    ).address; // Access the address property
+
+    console.log("employerReferralAta: ", employerReferralAta.toBase58());
+
     contractAta = (
       await getOrCreateAssociatedTokenAccount(
         provider.connection,
         employer,
-        PAY_TOKEN_MINT_ADDRESS,
+        PAY_TOKEN_MINT_ADDRESS.publicKey,
         jobContract,
         true
       )
@@ -124,7 +138,7 @@ describe("Admin Withdraw", () => {
     await mintTo(
       provider.connection,
       employer,
-      PAY_TOKEN_MINT_ADDRESS,
+      PAY_TOKEN_MINT_ADDRESS.publicKey,
       employerAta,
       employer.publicKey,
       1_000_000_000
@@ -139,161 +153,169 @@ describe("Admin Withdraw", () => {
     // (You would need to implement this part based on your contract's logic)
   });
 
-  it("should create a job listing", async () => {
-    console.log("------------- creating a job listing -------------");
-  });
+  // it("should create a job listing", async () => {
+  //   console.log("------------- creating a job listing -------------");
+  // });
 
-  it("Should list a job with a $1 fee on the employer side", async () => {
-    // Call the job_listing_with_one_fee_employer function
+  // it("Should list a job with a $1 fee on the employer side", async () => {
+  //   // Call the job_listing_with_one_fee_employer function
+  //   const tx = await program.methods
+  //     .jobListingWithOneFeeEmployer(contractId)
+  //     .accounts({
+  //       employer: employer.publicKey,
+  //       jobContract: jobContract,
+  //       employerAta: employerAta,
+  //       contractAta: contractAta,
+  //       employerReferralAta: "H91b4jtXRmqoD5JY4oEJRCiggzZnbmmkox5itHeYM9cE",
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  //       systemProgram: anchor.web3.SystemProgram.programId,
+  //     })
+  //     .signers([employer])
+  //     .rpc();
+
+  //   console.log("Transaction signature", tx);
+
+  //   // Add assertions to check the state after the transaction
+  //   // For example, check if the job contract status is updated
+  //   const updatedJobContract = await program.account.jobContract.fetch(
+  //     jobContract
+  //   );
+
+  //   const statusKeys = Object.keys(updatedJobContract.status);
+  //   console.log("statusKeys: ", statusKeys);
+
+  //   const tokenBalance = await provider.connection.getTokenAccountBalance(
+  //       employerAta
+  //     );
+  //     console.log("Token balance: ", tokenBalance);
+  //   const employerReferralTokenBalance = await provider.connection.getTokenAccountBalance(
+  //     employerReferralAta
+  //   );
+  //   console.log("EmployerReferralTokenBalance ===> : ", employerReferralTokenBalance);
+  //   assert.equal(
+  //     statusKeys[0],
+  //     "created",
+  //     "Job contract status should be 'Listed'"
+  //   );
+  // });
+
+  // it("have to withdraw the admin fee", async () => {
+  //   const balance = await provider.connection.getTokenAccountBalance(contractAta);
+  //   console.log("Contract token balance: ", contractAta.toBase58(), "\n", balance);
+    
+
+  //   const withdrawATA = await getOrCreateAssociatedTokenAccount(
+  //       provider.connection,
+  //       signer,
+  //       PAY_TOKEN_MINT_ADDRESS,
+  //       signer.publicKey
+  //   );
+
+  //   const withdrawAddressBalance = await provider.connection.getTokenAccountBalance(withdrawATA.address);
+  //   console.log("Withdraw address balance: ", withdrawATA.address.toBase58(), "\n", contractId, withdrawAddressBalance);
+
+
+
+
+
+  //   const tx = await program.methods
+  //     .adminWithdrawJobContract(contractId)
+  //     .accounts({
+  //       contract: jobContract,
+  //       contractAta: contractAta,
+  //       admin: signer.publicKey,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //       withdrawAddress: withdrawATA.address,
+  //       payTokenMint: PAY_TOKEN_MINT_ADDRESS,
+  //     })
+  //     .signers([signer])
+  //     .rpc();
+
+  //   console.log("Transaction signature", tx);
+
+  //   const postBalance = await provider.connection.getTokenAccountBalance(contractAta);
+  //   console.log("Contract token balance: ", contractAta.toBase58(), "\n", postBalance.value.uiAmount);
+    
+
+  //   const withdrawAddressPostBalance = await provider.connection.getTokenAccountBalance(withdrawATA.address);
+  //   console.log("Withdraw address balance: ", withdrawATA.address.toBase58(), "\n", contractId, withdrawAddressPostBalance.value.uiAmount);
+
+
+
+  // });
+
+  it("Should list a job with a featured fee on the employer side", async () => {
+    console.log("------------- creating a featured job listing -------------");
+
+    const featuredDay = 3; // Example: listing for 3 days
+    const expectedFee = 36_000_000; // Expected fee for 3 days
+
+    // Fetch the initial token balance of the employer
+    const initialEmployerTokenBalance =
+      await provider.connection.getTokenAccountBalance(employerAta);
+    console.log(
+      "Initial Employer Token Balance: ",
+      initialEmployerTokenBalance.value.amount
+    );
+
+    // Fetch the initial token balance of the contract
+    const initialContractTokenBalance =
+      await provider.connection.getTokenAccountBalance(contractAta);
+    console.log(
+      "Initial Contract Token Balance: ",
+      initialContractTokenBalance.value.amount
+    );
+
+    // Call the job_listing_with_feature_employer function
     const tx = await program.methods
-      .jobListingWithOneFeeEmployer(contractId)
+      .jobListingWithFeatureEmployer(contractId, featuredDay)
       .accounts({
-        employer: signer.publicKey,
+        employer: employer.publicKey,
         jobContract: jobContract,
         employerAta: employerAta,
         contractAta: contractAta,
+        employerReferralAta: employerReferralAta,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
       })
-      .signers([signer])
+      .signers([employer])
       .rpc();
 
     console.log("Transaction signature", tx);
 
-    // Add assertions to check the state after the transaction
-    // For example, check if the job contract status is updated
+    // Fetch the updated job contract
     const updatedJobContract = await program.account.jobContract.fetch(
       jobContract
     );
+    console.log("updatedJobContract: ", updatedJobContract);
 
-    const statusKeys = Object.keys(updatedJobContract.status);
-    console.log("statusKeys: ", statusKeys);
-
-    const tokenBalance = await provider.connection.getTokenAccountBalance(
-        employerAta
-      );
-      console.log("Token balance: ", tokenBalance);
-
+    // Check if the employer's token balance is reduced by the listing fee
+    const employerTokenBalance =
+      await provider.connection.getTokenAccountBalance(employerAta);
     assert.equal(
-      statusKeys[0],
-      "created",
-      "Job contract status should be 'Listed'"
-    );
-  });
-
-  it("have to withdraw the admin fee", async () => {
-    const balance = await provider.connection.getTokenAccountBalance(contractAta);
-    console.log("Contract token balance: ", contractAta.toBase58(), "\n", balance);
-    
-
-    const withdrawATA = await getOrCreateAssociatedTokenAccount(
-        provider.connection,
-        signer,
-        PAY_TOKEN_MINT_ADDRESS,
-        signer.publicKey
+      employerTokenBalance.value.amount,
+      (1_000_000_000 - expectedFee).toString(),
+      "Employer's token balance should reflect the listing fee deduction"
     );
 
-    const withdrawAddressBalance = await provider.connection.getTokenAccountBalance(withdrawATA.address);
-    console.log("Withdraw address balance: ", withdrawATA.address.toBase58(), "\n", contractId, withdrawAddressBalance);
+    // Fetch the updated token balance of the employer after job posting
+    const updatedEmployerTokenBalance =
+      await provider.connection.getTokenAccountBalance(employerAta);
+    console.log(
+      "Updated Employer Token Balance: ",
+      updatedEmployerTokenBalance.value.amount
+    );
 
+    // Fetch the updated token balance of the contract after job posting
+    const updatedContractTokenBalance =
+      await provider.connection.getTokenAccountBalance(contractAta);
+    console.log(
+      "Updated Contract Token Balance: ",
+      updatedContractTokenBalance.value.amount
+    );
 
-
-
-
-    const tx = await program.methods
-      .adminWithdrawJobContract(contractId)
-      .accounts({
-        contract: jobContract,
-        contractAta: contractAta,
-        admin: signer.publicKey,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        withdrawAddress: withdrawATA.address,
-        payTokenMint: PAY_TOKEN_MINT_ADDRESS,
-      })
-      .signers([signer])
-      .rpc();
-
-    console.log("Transaction signature", tx);
-
-    const postBalance = await provider.connection.getTokenAccountBalance(contractAta);
-    console.log("Contract token balance: ", contractAta.toBase58(), "\n", postBalance.value.uiAmount);
-    
-
-    const withdrawAddressPostBalance = await provider.connection.getTokenAccountBalance(withdrawATA.address);
-    console.log("Withdraw address balance: ", withdrawATA.address.toBase58(), "\n", contractId, withdrawAddressPostBalance.value.uiAmount);
-
-
-
+    console.log("Featured job listing created successfully!");
   });
-
-//   it("Should list a job with a featured fee on the employer side", async () => {
-//     console.log("------------- creating a featured job listing -------------");
-
-//     const featuredDay = 3; // Example: listing for 3 days
-//     const expectedFee = 36_000_000; // Expected fee for 3 days
-
-//     // Fetch the initial token balance of the employer
-//     const initialEmployerTokenBalance =
-//       await provider.connection.getTokenAccountBalance(employerAta);
-//     console.log(
-//       "Initial Employer Token Balance: ",
-//       initialEmployerTokenBalance.value.amount
-//     );
-
-//     // Fetch the initial token balance of the contract
-//     const initialContractTokenBalance =
-//       await provider.connection.getTokenAccountBalance(contractAta);
-//     console.log(
-//       "Initial Contract Token Balance: ",
-//       initialContractTokenBalance.value.amount
-//     );
-
-//     // Call the job_listing_with_feature_employer function
-//     const tx = await program.methods
-//       .jobListingWithFeatureEmployer(contractId, featuredDay)
-//       .accounts({
-//         employer: employer.publicKey,
-//         jobContract: jobContract,
-//         employerAta: employerAta,
-//         contractAta: contractAta,
-//         tokenProgram: TOKEN_PROGRAM_ID,
-//         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-//         systemProgram: anchor.web3.SystemProgram.programId,
-//       })
-//       .signers([employer])
-//       .rpc();
-
-//     console.log("Transaction signature", tx);
-
-//     // Fetch the updated job contract
-//     const updatedJobContract = await program.account.jobContract.fetch(
-//       jobContract
-//     );
-//     console.log("updatedJobContract: ", updatedJobContract);
-
-//     // Check if the employer's token balance is reduced by the listing fee
-//     const employerTokenBalance =
-//       await provider.connection.getTokenAccountBalance(employerAta);
-//     assert.equal(
-//       employerTokenBalance.value.amount,
-//       (1_000_000_000 - expectedFee).toString(),
-//       "Employer's token balance should reflect the listing fee deduction"
-//     );
-
-//     // Fetch the updated token balance of the employer after job posting
-//     const updatedEmployerTokenBalance =
-//       await provider.connection.getTokenAccountBalance(employerAta);
-//     console.log(
-//       "Updated Employer Token Balance: ",
-//       updatedEmployerTokenBalance.value.amount
-//     );
-
-//     // Fetch the updated token balance of the contract after job posting
-//     const updatedContractTokenBalance =
-//       await provider.connection.getTokenAccountBalance(contractAta);
-//     console.log(
-//       "Updated Contract Token Balance: ",
-//       updatedContractTokenBalance.value.amount
-//     );
-
-//     console.log("Featured job listing created successfully!");
-//   });
 });
